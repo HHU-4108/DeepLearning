@@ -3,9 +3,12 @@
 leNet5.py
 ---------
 使用Pytorch实现的LeNet5。
-    1、数据集是pytorch直接下载的minst手写体数据集，代码是从网上直接拷贝的，发现运行不了，第二层卷积之后和全连接层的参数对接出现错误。原来是源码中认为数据集大小是32X32，而实际是28X28.
-    2、Pytorch中max_pool2d的stride默认是kernel_size，
-    定义如下
+
+1、数据集是pytorch直接下载的minst手写体数据集，代码是从网上直接拷贝的，发现运行不了，第二层卷积之后和全连接层的参数对接出现错误。原来是源码中认为数据集大小是32X32，而实际是28X28.
+
+2、Pytorch中max_pool2d的stride默认是kernel_size，
+
+源码定义如下
     
 ```
 torch.nn.MaxPool2d(kernel_size, stride=None, padding=0, dilation=1, return_indices=False, ceil_mode=False)
@@ -36,4 +39,3 @@ then get better result:
 ```
 output label:n02123159 tiger cat tensor([282], device='cuda:0')
 ```
-
