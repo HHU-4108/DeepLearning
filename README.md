@@ -8,7 +8,7 @@ leNet5.py
     定义如下
     torch.nn.MaxPool2d(kernel_size, stride=None, padding=0, dilation=1, return_indices=False, ceil_mode=False)
 
-####Parameters:	
+#### Parameters:	
         kernel_size – the size of the window to take a max over
         stride – the stride of the window. Default value is kernel_size
         padding – implicit zero padding to be added on both sides
