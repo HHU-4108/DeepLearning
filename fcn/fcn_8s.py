@@ -94,7 +94,47 @@ class FCN_8s(nn.Module):
         upscore2 = x
 
         x = self.score_pool4(pool4)
-        x = 
+        x = x[:, :, 2:2 + upscore2.size()[2], 2:2 + upscore2.size()[3]]
+        x = x + upscore2
+        x = self.upscore_pool4(x)
+        upscore_pool4 = x
+
+        x = self.score_pool3(pool3)
+        x = x[:, :, 9:9 + upscore_pool4.size()[2], 9:9 + upscore_pool4.size()[3]]
+        x = x + upscore_pool4
+
+        x = self.upscore8(x)
+        x = x[:, :, 31:31 + x.size()[2], 31:31 + x.size()[3]].contiguous()
+
+        return x
+
+    def copy_weight(self, vgg16):
+        features = [
+            self.conv1_1,
+            self.conv1_2,
+            self.conv2_1,
+            self.conv2_2,
+            self.conv3_1,
+            self.conv3_2,
+            self.conv3_3,
+            self.conv4_1,
+            self.conv4_2,
+            self.conv4_3,
+            self.conv5_1,
+            self.conv5_2,
+            self.conv5_3
+        ]
+
+        for l1, l2 in zip(features, vgg16.features):
+            if isinstance(l1, nn.Conv2d) and isinstance(l2, nn.Conv2d):
+                if l1.weight.size() == l2.weight.size() and l1.bias.size() == l2.bias.size():
+                    l1.weight.data.copy_(l2.weight.data)
+                    l1.bias.data.copy_(l2.bias.data)
+        for i, name in zip([0, 3], ['fc6', 'fc7']):
+            l1 = getattr(self, name)
+            l2 = vgg16.classifier[i]
+            l1.weight.data.copy_(l2.weight.data.view(l1.weight.size()))
+            l1.bias.data.copy_(l2.bias.data.view(l1.bias.size()))
 
 
 model = load_pretrained_net()
