@@ -1,16 +1,25 @@
 import torch.nn as nn
-from torchvision import models
+import torch
+import numpy as np
 
-
-def load_pretrained_net():
-    vgg16_model = models.vgg16(pretrained=True)
-    my_model = vgg16_model.features
-    return vgg16_model
-
+def get_upsampling_weight(in_channels, out_channels, kernel_size):
+    """Make a 2D bilinear kernel suitable for upsampling"""
+    factor = (kernel_size + 1) // 2
+    if kernel_size % 2 == 1:
+        center = factor - 1
+    else:
+        center = factor - 0.5
+    og = np.ogrid[:kernel_size, :kernel_size]
+    filt = (1 - abs(og[0] - center) / factor) * \
+           (1 - abs(og[1] - center) / factor)
+    weight = np.zeros((in_channels, out_channels, kernel_size, kernel_size),
+                      dtype=np.float64)
+    weight[range(in_channels), range(out_channels), :, :] = filt
+    return torch.from_numpy(weight).float()
 
 class FCN_8s(nn.Module):
-    def __init__(self, pretrained_net, num_calss):
-        self.classify_sequential = pretrained_net
+    def __init__(self, num_calss):
+        super(FCN_8s, self).__init__()
         # first sequential
         self.conv1_1 = nn.Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
         # self.relu1_1 = nn.ReLU(inplace=True)
@@ -58,6 +67,19 @@ class FCN_8s(nn.Module):
         self.upscore8 = nn.ConvTranspose2d(num_calss, num_calss, kernel_size=16, stride=8, bias=False)
 
         self.relu = nn.ReLU(inplace=True)
+        self._initialize_weights()
+
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                m.weight.data.zero_()
+                if m.bias is not None:
+                    m.bias.data.zero_()
+            if isinstance(m, nn.ConvTranspose2d):
+                assert m.kernel_size[0] == m.kernel_size[1]
+                initial_weight = get_upsampling_weight(
+                    m.in_channels, m.out_channels, m.kernel_size[0])
+                m.weight.data.copy_(initial_weight)
 
     def forward(self, x):
         x = self.relu(self.conv1_1(x))
@@ -94,18 +116,19 @@ class FCN_8s(nn.Module):
         upscore2 = x
 
         x = self.score_pool4(pool4)
-        x = x[:, :, 2:2 + upscore2.size()[2], 2:2 + upscore2.size()[3]]
+        x = x[:, :, 5:5 + upscore2.size()[2], 5:5 + upscore2.size()[3]]
         x = x + upscore2
+        print(x.shape)
         x = self.upscore_pool4(x)
         upscore_pool4 = x
 
         x = self.score_pool3(pool3)
         x = x[:, :, 9:9 + upscore_pool4.size()[2], 9:9 + upscore_pool4.size()[3]]
         x = x + upscore_pool4
-
+        print(x.shape)
         x = self.upscore8(x)
         x = x[:, :, 31:31 + x.size()[2], 31:31 + x.size()[3]].contiguous()
-
+        print(x.shape)
         return x
 
     def copy_weight(self, vgg16):
@@ -137,5 +160,3 @@ class FCN_8s(nn.Module):
             l1.bias.data.copy_(l2.bias.data.view(l1.bias.size()))
 
 
-model = load_pretrained_net()
-print(model)
